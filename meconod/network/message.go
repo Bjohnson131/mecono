@@ -31,31 +31,21 @@ const (
 	MessageEncryptionKeyLength uint8 = 32
 )
 
-type Message interface {
-	// Can this message be known by the controller
-	CanBeKnown(*Controller) bool
-
-	// Unique descriptor of this message for the purposes of observability
-	Descriptor() string
-
-	// Upcoming path
-	Itinerary() Path
-
-	// Encodes the message into the standard byte format
-	Encode() []byte
-}
-
-type KnownMessage struct {
+// A message is a fully-known (AKA unencrypted) unit of data for transmitting through the network.
+type Message struct {
 	itinerary Path
 
 	// Whether this message is a response.
 	Response bool
 
-	// Either this message's unique ID, or the ID of the message this is a response to.
-	MessageId uint64
+	// Exchange ID that this message is a part of.
+	ExchangeId uint64
 
-	// Which attempt is this message to be sent.
-	Attempt uint32
+	// Chunk ID within this thread that this message belongs to.
+	ChunkIndex uint64
+
+	// Total chunk count for all of the messages
+	ChunkCount uint64
 
 	// Payload type.
 	PayloadType PayloadType
@@ -69,8 +59,7 @@ type KnownMessage struct {
 
 type MessageHeader struct {
 	Response        bool   `json:"Response"`
-	MessageId       uint64 `json:"MessageId"`
-	Attempt         uint32 `json:"Attempt"`
+	ExchangeId      uint64 `json:"ExchangeId"`
 	PayloadTypeCode uint8  `json:"PayloadTypeCode"`
 }
 
@@ -89,16 +78,16 @@ type Directionality interface {
 }
 
 // A known message can always be known
-func (knownMessage *KnownMessage) CanBeKnown(controller *Controller) bool {
+func (knownMessage *Message) CanBeKnown(controller *Controller) bool {
 	return true
 }
 
-func (knownMessage *KnownMessage) Descriptor() string {
+func (knownMessage *Message) Descriptor() string {
 	// TODO: include more info about message
 	return "Known Message"
 }
 
-func (knownMessage *KnownMessage) Itinerary() Path {
+func (knownMessage *Message) Itinerary() Path {
 	return knownMessage.itinerary
 }
 
@@ -118,11 +107,10 @@ func (foreignMessage *ForeignMessage) Itinerary() Path {
 }
 
 // Serialize header into a JSON representation, then encode JSON string to bytes.
-func (knownMessage *KnownMessage) SerializeHeader() ([]byte, error) {
+func (knownMessage *Message) SerializeHeader() ([]byte, error) {
 	header := MessageHeader{
 		Response:        knownMessage.Response,
-		MessageId:       knownMessage.MessageId,
-		Attempt:         knownMessage.Attempt,
+		ExchangeId:      knownMessage.ExchangeId,
 		PayloadTypeCode: LookupPayloadTypeInfo(knownMessage.PayloadType).TypeCode,
 	}
 
@@ -135,7 +123,7 @@ func (knownMessage *KnownMessage) SerializeHeader() ([]byte, error) {
 }
 
 // Decrypt cipherbytes using the symmetrical encryption key for this message.
-func (knownMessage *KnownMessage) SymmetricallyDecrypt(cipherbytes []byte) []byte {
+func (knownMessage *Message) SymmetricallyDecrypt(cipherbytes []byte) []byte {
 	key, err := aes.NewCipher(knownMessage.EncryptionKey)
 	if err != nil {
 		panic(err)
@@ -148,7 +136,7 @@ func (knownMessage *KnownMessage) SymmetricallyDecrypt(cipherbytes []byte) []byt
 }
 
 // Encrypt plainbytes using the symmetrical encryption key for this message.
-func (knownMessage *KnownMessage) SymmetricallyEncrypt(plainbytes []byte) []byte {
+func (knownMessage *Message) SymmetricallyEncrypt(plainbytes []byte) []byte {
 	key, err := aes.NewCipher(knownMessage.EncryptionKey)
 	if err != nil {
 		panic(err)
@@ -161,12 +149,12 @@ func (knownMessage *KnownMessage) SymmetricallyEncrypt(plainbytes []byte) []byte
 }
 
 // Generate and overwrite the message encryption key.
-func (knownMessage *KnownMessage) GenerateEncryptionKey() {
+func (knownMessage *Message) GenerateEncryptionKey() {
 	knownMessage.EncryptionKey = make([]byte, MessageEncryptionKeyLength)
 	rand.Read(knownMessage.EncryptionKey)
 }
 
-func (knownMessage *KnownMessage) SymetricallyEncryptedHeader() ([]byte, error) {
+func (knownMessage *Message) SymetricallyEncryptedHeader() ([]byte, error) {
 	serializedHeader, err := knownMessage.SerializeHeader()
 	if err != nil {
 		return nil, fmt.Errorf("could not serialize header: %s", err)
@@ -175,7 +163,7 @@ func (knownMessage *KnownMessage) SymetricallyEncryptedHeader() ([]byte, error) 
 	return knownMessage.SymmetricallyEncrypt(serializedHeader), nil
 }
 
-func (knownMessage *KnownMessage) SymetricallyEncryptedPayload() []byte {
+func (knownMessage *Message) SymetricallyEncryptedPayload() []byte {
 	return knownMessage.SymmetricallyEncrypt(knownMessage.Payload)
 }
 

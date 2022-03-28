@@ -32,14 +32,20 @@ type Controller struct {
 	// Public key
 	PublicKey []byte
 
-	// Messages coming into the controller
-	Outbox MessageQueue
+	// Foreign messages leaving the controller.
+	Outbox chan ForeignMessage
 
-	// Messages leaving the controller
-	Inbox MessageQueue
+	// Foreign messages coming into the controller.
+	Inbox chan ForeignMessage
+
+	// All active exchanges initated by this controller.
+	Exchanges []*Exchange
 
 	// Whether the controller should be actively processing
 	Started bool
+
+	// Next unused thread ID
+	NextExchangeId uint64
 
 	// Various signalling
 	OutboxProcessingStopped    chan bool
@@ -69,6 +75,13 @@ func (controller *Controller) Start() {
 
 	go controller.processInbox()
 	go controller.processOutbox()
+}
+
+// Provisions an unused exchange ID
+func (controller *Controller) ProvisionExchangeId() uint64 {
+	provisionedThreadId := controller.NextExchangeId
+	controller.NextExchangeId += 1
+	return provisionedThreadId
 }
 
 func (controller *Controller) PrintKeys() {
@@ -101,7 +114,7 @@ func (controller *Controller) Logf(msg string, tokens ...string) {
 	controller.Log(fmt.Sprintf(msg, tokens))
 }
 
-func (controller *Controller) knowMessage(message *ForeignMessage) (*KnownMessage, error) {
+func (controller *Controller) knowMessage(message ForeignMessage) (*Message, error) {
 	// TODO: implement
 	return nil, nil
 }
@@ -112,7 +125,7 @@ func (controller *Controller) processOutbox() {
 	started := true
 	for started {
 		select {
-		case outboxMessage := <-controller.Outbox.Messages:
+		case outboxMessage := <-controller.Outbox:
 			controller.processOutboxMessage(outboxMessage)
 		case <-controller.OutboxProcessingShouldStop:
 			started = false
@@ -129,7 +142,7 @@ func (controller *Controller) processInbox() {
 	started := true
 	for started {
 		select {
-		case inboxMessage := <-controller.Inbox.Messages:
+		case inboxMessage := <-controller.Inbox:
 			controller.processInboxMessage(inboxMessage)
 		case <-controller.InboxProcessingShouldStop:
 			started = false
@@ -140,11 +153,11 @@ func (controller *Controller) processInbox() {
 	controller.InboxProcessingStopped <- true
 }
 
-func (controller *Controller) processOutboxMessage(message Message) {
+func (controller *Controller) processOutboxMessage(message ForeignMessage) {
 	controller.Logf("Processing outbox message: %s", message.Descriptor())
 }
 
-func (controller *Controller) processInboxMessage(message Message) {
+func (controller *Controller) processInboxMessage(message ForeignMessage) {
 	controller.Logf("Processing inbox message: %s", message.Descriptor())
 }
 
@@ -234,7 +247,7 @@ func (controller *Controller) GenerateAsymmetricKeyPair() {
 	controller.Log("Generated a valid RSA public/private key pair")
 }
 
-func (controller *Controller) Encode(knownMessage *KnownMessage) ([]byte, error) {
+func (controller *Controller) Encode(knownMessage *Message) ([]byte, error) {
 	// Encode itinerary
 	itinerary := make([]byte, 0)
 	for i := range knownMessage.Itinerary().Nodes {

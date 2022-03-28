@@ -15,6 +15,7 @@ func main() {
 
 	for i := range controllers {
 		controller, err := network.InitController(
+			// "TN" is short for "Test Node"
 			fmt.Sprintf("TN%04d", i),
 			"This node is used for testing 🛠️🛠️",
 		)
