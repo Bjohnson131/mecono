@@ -1,4 +1,7 @@
 syntax = "proto3";
+package meconod;
+
+option go_package = "github.com/jaksonkallio/mecono/meconod/protos";
 
 // A transmission of a Mecono network message.
 message TransmitRequest {
