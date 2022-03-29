@@ -1,5 +1,7 @@
 package network
 
+import "github.com/jaksonkallio/mecono/meconod/encoding"
+
 // A node is a record of a remote node on the network
 type Node struct {
 	// Successful pings sent across this node (received some sort of response)
@@ -10,6 +12,9 @@ type Node struct {
 
 	// The public key of this node
 	PublicKey []byte
+
+	// Whether geo point is known.
+	GeoPointKnown bool
 
 	// Where the node is located geographically on a coordinate plane to assist with path finding
 	GeoPoint Coords
@@ -29,7 +34,7 @@ type Neighbor struct {
 	Node *Node
 
 	// The interface that neighbor is on
-	NetInterface *NetInterface
+	InterfaceIpAddress string
 
 	// The IP address the neighbor is hosted on
 	IpAddress string
@@ -44,4 +49,8 @@ func (node *Node) Reliability() float32 {
 	}
 
 	return float32(node.PingSuccesses) / float32(node.PingTotal)
+}
+
+func (node *Node) Descriptor() string {
+	return encoding.MiniHexString(encoding.BytesToSha256HashHexString(node.PublicKey))
 }

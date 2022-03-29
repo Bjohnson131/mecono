@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+// A transmission of a Mecono network message.
+message TransmitRequest {
+	// Base64 string of the message bytedata.
+	string message = 1;
+}
+
+// The response to a transmission of a Mecono network message.
+message TransmitResponse {
+	bool ok = 1;
+}
+
+service MeconodService {
+	rpc Transmit(TransmitRequest) returns (TransmitResponse);
+}

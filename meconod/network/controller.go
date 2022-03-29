@@ -7,7 +7,6 @@ import (
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base64"
-	"encoding/hex"
 	"fmt"
 	"log"
 
@@ -52,9 +51,19 @@ type Controller struct {
 	InboxProcessingStopped     chan bool
 	OutboxProcessingShouldStop chan bool
 	InboxProcessingShouldStop  chan bool
+
+	// Local storage of mappings from base 64 public key to node pointer.
+	// TODO: Temporary solution, switch to persistent storage.
+	Nodes map[encoding.Base64String]*Node
+
+	// Neighbors of this controller.
+	Neighbors []*Neighbor
+
+	// Port that this controller listens for connections on.
+	NetworkPort uint16
 }
 
-func InitController(name string, motd string) (*Controller, error) {
+func InitController(name string, motd string, networkPort uint16) (*Controller, error) {
 	controller := &Controller{
 		Name:                       name,
 		Motd:                       motd,
@@ -62,11 +71,85 @@ func InitController(name string, motd string) (*Controller, error) {
 		InboxProcessingStopped:     make(chan bool),
 		OutboxProcessingShouldStop: make(chan bool),
 		InboxProcessingShouldStop:  make(chan bool),
+		NetworkPort:                networkPort,
+		Neighbors:                  make([]*Neighbor, 0),
+		Nodes:                      make(map[encoding.Base64String]*Node),
 	}
 
 	controller.GenerateAsymmetricKeyPair()
 
 	return controller, nil
+}
+
+func (controller *Controller) AddNeighbor(
+	node *Node,
+	interfaceIpAddress string,
+	ipAddress string,
+	port uint16,
+) error {
+	for _, neighbor := range controller.Neighbors {
+		if neighbor.InterfaceIpAddress == interfaceIpAddress {
+			// Interface IP address is the same.
+			if neighbor.IpAddress == ipAddress && neighbor.Port == port {
+				// Same IP address and port on a specific interface, can't add this neighbor.
+				return fmt.Errorf("neighbor already exists on this network interface")
+			}
+		}
+	}
+
+	controller.Logf("Adding neighbor %s", node.Descriptor())
+
+	controller.Neighbors = append(
+		controller.Neighbors,
+		&Neighbor{
+			Node:               node,
+			InterfaceIpAddress: interfaceIpAddress,
+			IpAddress:          ipAddress,
+			Port:               port,
+		},
+	)
+
+	return nil
+}
+
+func (controller *Controller) StartExchange(
+	payloadType PayloadType,
+	payload []byte,
+	destination *Node,
+) *Exchange {
+	return &Exchange{
+		AttemptCounter: 0,
+		Id:             controller.ProvisionExchangeId(),
+		Payload:        payload,
+		PayloadType:    payloadType,
+		Controller:     controller,
+	}
+}
+
+func (controller *Controller) LookupNode(publicKey []byte) *Node {
+	// Convert the public key bytes to something that can be used as a map key (hint: base64 string).
+	publicKeyStr := encoding.BytesToSha256HashBase64String(publicKey)
+
+	node, exists := controller.Nodes[publicKeyStr]
+	if exists {
+		// We've seen this node before, return the existing node reference.
+		return node
+	}
+
+	// We have not seen this node before, create the node reference and return.
+	node = &Node{
+		PingSuccesses:                   0,
+		PingTotal:                       0,
+		PublicKey:                       publicKey,
+		GeoPointKnown:                   false,
+		NextOutboundAntiReplayCounter:   0,
+		MinimumInboundAntiReplayCounter: 0,
+	}
+
+	// Add the newly created node to the database.
+	controller.Nodes[publicKeyStr] = node
+
+	return node
 }
 
 func (controller *Controller) Start() {
@@ -102,8 +185,7 @@ func (controller *Controller) Stop() {
 
 // The controller descriptor is a short string used to identify this controller
 func (controller *Controller) Descriptor() string {
-	address := controller.PublicKeyHashString()
-	return fmt.Sprintf("%s-%s", address[0:3], address[len(address)-3:])
+	return encoding.MiniHexString(controller.PublicKeyHashString())
 }
 
 func (controller *Controller) Log(msg string) {
@@ -171,12 +253,12 @@ func (controller *Controller) PublicKeyHash() []byte {
 	return sum[:]
 }
 
-func (controller *Controller) PublicKeyHashString() string {
-	return hex.EncodeToString(controller.PublicKeyHash())
+func (controller *Controller) PublicKeyHashString() encoding.HexString {
+	return encoding.BytesToHex(controller.PublicKeyHash())
 }
 
-func (controller *Controller) privateKeyString() string {
-	return base64.StdEncoding.EncodeToString(controller.privateKey)
+func (controller *Controller) privateKeyString() encoding.Base64String {
+	return encoding.BytesToBase64(controller.privateKey)
 }
 
 func (controller *Controller) AsymmetricallySign(messagebytes []byte) []byte {
