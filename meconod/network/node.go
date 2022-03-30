@@ -1,6 +1,15 @@
 package network
 
-import "github.com/jaksonkallio/mecono/meconod/encoding"
+import (
+	"context"
+	"fmt"
+	"time"
+
+	"github.com/jaksonkallio/mecono/meconod/encoding"
+	"github.com/jaksonkallio/mecono/meconod/protos"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+)
 
 // A node is a record of a remote node on the network
 type Node struct {
@@ -44,6 +53,44 @@ type Neighbor struct {
 
 	// The port the neighbor is hosted on
 	Port uint16
+
+	// Last successfull neighbor health check
+	LastHealthy time.Time
+
+	// GRPC client connection to this neighbor
+	GrpcClient protos.MeconodServiceClient
+
+	// GRPC client connection
+	GrpcClientConn *grpc.ClientConn
+}
+
+func InitNeighbor(
+	node *Node,
+	interfaceIpAddress string,
+	ipAddress string,
+	port uint16,
+) (*Neighbor, error) {
+
+	neighbor := &Neighbor{
+		Node:               node,
+		InterfaceIpAddress: interfaceIpAddress,
+		IpAddress:          ipAddress,
+		Port:               port,
+	}
+
+	// Create the GRPC client connection
+	conn, err := grpc.Dial(neighbor.HostAddress(), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return nil, fmt.Errorf("could not dial host: %s", err)
+	}
+
+	// Store a copy of the client connection
+	neighbor.GrpcClientConn = conn
+
+	// Create the GRPC client
+	neighbor.GrpcClient = protos.NewMeconodServiceClient(conn)
+
+	return neighbor, nil
 }
 
 func (node *Node) Reliability() float32 {
@@ -56,4 +103,24 @@ func (node *Node) Reliability() float32 {
 
 func (node *Node) Descriptor() string {
 	return encoding.MiniHexString(encoding.BytesToSha256HashHexString(node.PublicKey))
+}
+
+func (neighbor *Neighbor) HostAddress() string {
+	return fmt.Sprintf("%s:%d", neighbor.IpAddress, neighbor.Port)
+}
+
+func (neighbor *Neighbor) Stop() {
+	if neighbor.GrpcClientConn != nil {
+		neighbor.GrpcClientConn.Close()
+	}
+}
+
+func (neighbor *Neighbor) HealthCheck() bool {
+	neighborHealthCheckResponse, err := neighbor.GrpcClient.NeighborHealthCheck(context.TODO(), &protos.NeighborHealthCheckRequest{})
+	healthy := (err == nil && neighborHealthCheckResponse.Status == "healthy")
+	if healthy {
+		neighbor.LastHealthy = time.Now()
+	}
+
+	return healthy
 }

@@ -98,6 +98,7 @@ func (controller *Controller) AddNeighbor(
 	ipAddress string,
 	port uint16,
 ) error {
+	// Check if this neighbor already exists
 	for _, neighbor := range controller.Neighbors {
 		if neighbor.InterfaceIpAddress == interfaceIpAddress {
 			// Interface IP address is the same.
@@ -108,17 +109,20 @@ func (controller *Controller) AddNeighbor(
 		}
 	}
 
-	controller.Logf("Adding neighbor %s", node.Descriptor())
-
-	controller.Neighbors = append(
-		controller.Neighbors,
-		&Neighbor{
-			Node:               node,
-			InterfaceIpAddress: interfaceIpAddress,
-			IpAddress:          ipAddress,
-			Port:               port,
-		},
+	neighbor, err := InitNeighbor(
+		node,
+		interfaceIpAddress,
+		ipAddress,
+		port,
 	)
+	if err != nil {
+		return fmt.Errorf("could not add neighbor: %s", err)
+	}
+
+	controller.Neighbors = append(controller.Neighbors, neighbor)
+
+	newNeighborHealthy := neighbor.HealthCheck()
+	controller.Log(fmt.Sprintf("Added neighbor %s, %s", node.Descriptor(), encoding.BoolToHealthString(newNeighborHealthy)))
 
 	return nil
 }

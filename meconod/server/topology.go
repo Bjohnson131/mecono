@@ -66,20 +66,26 @@ func (topology *Topology) BuildNeighborships() {
 
 	for _, neighborship := range topology.Neighborships {
 		// Add A->B neighborship
-		topology.Controllers[neighborship.ControllerIndexA].AddNeighbor(
+		err := topology.Controllers[neighborship.ControllerIndexA].AddNeighbor(
 			topology.Controllers[neighborship.ControllerIndexA].LookupNode(topology.Controllers[neighborship.ControllerIndexB].PublicKey),
 			"127.0.0.1",
 			"127.0.0.1",
 			uint16(7600+neighborship.ControllerIndexB),
 		)
+		if err != nil {
+			topology.Controllers[neighborship.ControllerIndexA].Log(fmt.Sprintf("Could not add neighbor: %s", err))
+		}
 
 		// Add B->A neighborship
-		topology.Controllers[neighborship.ControllerIndexB].AddNeighbor(
+		err = topology.Controllers[neighborship.ControllerIndexB].AddNeighbor(
 			topology.Controllers[neighborship.ControllerIndexB].LookupNode(topology.Controllers[neighborship.ControllerIndexA].PublicKey),
 			"127.0.0.1",
 			"127.0.0.1",
 			uint16(7600+neighborship.ControllerIndexA),
 		)
+		if err != nil {
+			topology.Controllers[neighborship.ControllerIndexB].Log(fmt.Sprintf("Could not add neighbor: %s", err))
+		}
 	}
 }
 
