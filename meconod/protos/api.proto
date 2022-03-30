@@ -14,6 +14,13 @@ message TransmitResponse {
 	bool ok = 1;
 }
 
+message NeighborHealthCheckRequest {}
+
+message NeighborHealthCheckResponse {
+	string status = 1;
+}
+
 service MeconodService {
 	rpc Transmit(TransmitRequest) returns (TransmitResponse);
+	rpc NeighborHealthCheck(NeighborHealthCheckRequest) returns (NeighborHealthCheckResponse);
 }

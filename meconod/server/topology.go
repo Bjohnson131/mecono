@@ -18,12 +18,13 @@ type Neighborship struct {
 }
 
 func InitTopology(
-	controllerCount uint16,
+	serverCount uint16,
 	neighborships []Neighborship,
 ) (*Topology, error) {
-	controllers := make([]*network.Controller, controllerCount)
+	controllers := make([]*network.Controller, serverCount)
 
 	for i := range controllers {
+		// Create the controller for the server
 		controller, err := network.InitController(
 			// "TN" is short for "Test Node"
 			fmt.Sprintf("TN%04d", i),
@@ -39,8 +40,11 @@ func InitTopology(
 			return nil, fmt.Errorf("could not initialize controller: %s", err)
 		}
 
-		controller.Start()
+		// Add the newly created server to our server slice
 		controllers[i] = controller
+
+		// Start the controller
+		controller.Start()
 	}
 
 	// Create the topology struct.

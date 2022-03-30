@@ -9,8 +9,12 @@ import (
 	"encoding/base64"
 	"fmt"
 	"log"
+	"net"
 
 	"github.com/jaksonkallio/mecono/meconod/encoding"
+	"github.com/jaksonkallio/mecono/meconod/protos"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 )
 
 const (
@@ -19,6 +23,7 @@ const (
 
 // A controller is the daemon that manages sending/receiving messages to nodes.
 type Controller struct {
+
 	// Name string
 	Name string
 
@@ -61,6 +66,12 @@ type Controller struct {
 
 	// Port that this controller listens for connections on.
 	NetworkPort uint16
+
+	// This makes unimplemented methods not create runtime errors from protos.
+	// Required by GRPC.
+	protos.UnimplementedMeconodServiceServer
+
+	GrpcServer *grpc.Server
 }
 
 func InitController(name string, motd string, networkPort uint16) (*Controller, error) {
@@ -156,6 +167,7 @@ func (controller *Controller) Start() {
 	controller.Log("Starting controller")
 	controller.Started = true
 
+	go controller.InitApi()
 	go controller.processInbox()
 	go controller.processOutbox()
 }
@@ -180,6 +192,14 @@ func (controller *Controller) Stop() {
 		controller.InboxProcessingShouldStop <- true
 		<-controller.OutboxProcessingStopped
 		<-controller.InboxProcessingStopped
+		controller.StopApi()
+	}
+}
+
+func (controller *Controller) StopApi() {
+	if controller.GrpcServer != nil {
+		controller.Log("Stopping API service")
+		controller.GrpcServer.GracefulStop()
 	}
 }
 
@@ -389,4 +409,21 @@ func (controller *Controller) Encode(knownMessage *Message) ([]byte, error) {
 	data = append(data, signature...)
 
 	return data, nil
+}
+
+func (controller *Controller) InitApi() error {
+	netAddr := fmt.Sprintf("127.0.0.1:%d", controller.NetworkPort)
+	lis, err := net.Listen("tcp", netAddr)
+	if err != nil {
+		log.Fatalf("failed to listen: %v", err)
+	}
+
+	controller.Logf("API service listening on %s", netAddr)
+
+	controller.GrpcServer = grpc.NewServer()
+	protos.RegisterMeconodServiceServer(controller.GrpcServer, controller)
+	reflection.Register(controller.GrpcServer)
+	controller.GrpcServer.Serve(lis)
+
+	return nil
 }

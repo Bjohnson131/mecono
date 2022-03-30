@@ -16,14 +16,11 @@ const (
 )
 
 const (
-	// A ping message being sent to it's destination.
-	PingOutward PayloadType = 1
-
-	// A response to a ping message being sent back to the original ping origin.
-	PingResponse PayloadType = 2
-
-	// Arbitrary data bytes.
+	PingRequest   PayloadType = 1
+	PingResponse  PayloadType = 2
 	ArbitraryData PayloadType = 3
+	RouteRequest  PayloadType = 4
+	RouteResponse PayloadType = 5
 )
 
 const (
@@ -41,17 +38,17 @@ type Message struct {
 	// Exchange ID that this message is a part of.
 	ExchangeId uint64
 
-	// Chunk ID within this thread that this message belongs to.
-	ChunkIndex uint64
+	// Chunk ID within this that this message belongs to.
+	PayloadChunkIndex uint64
 
 	// Total chunk count for all of the messages
-	ChunkCount uint64
+	PayloadChunkCount uint64
 
 	// Payload type.
 	PayloadType PayloadType
 
 	// Raw payload bytes.
-	Payload []byte
+	PayloadChunk []byte
 
 	// Symmetric encryption key, used to encrypt header and body
 	EncryptionKey []byte
@@ -164,12 +161,12 @@ func (knownMessage *Message) SymetricallyEncryptedHeader() ([]byte, error) {
 }
 
 func (knownMessage *Message) SymetricallyEncryptedPayload() []byte {
-	return knownMessage.SymmetricallyEncrypt(knownMessage.Payload)
+	return knownMessage.SymmetricallyEncrypt(knownMessage.PayloadChunk)
 }
 
 func LookupPayloadTypeInfo(payloadType PayloadType) PayloadTypeInfo {
 	switch payloadType {
-	case PingOutward:
+	case PingRequest:
 		return PayloadTypeInfo{
 			Description: "Outward Ping",
 			TypeCode:    1,
@@ -183,6 +180,16 @@ func LookupPayloadTypeInfo(payloadType PayloadType) PayloadTypeInfo {
 		return PayloadTypeInfo{
 			Description: "Arbitrary Data",
 			TypeCode:    3,
+		}
+	case RouteRequest:
+		return PayloadTypeInfo{
+			Description: "Route Request",
+			TypeCode:    4,
+		}
+	case RouteResponse:
+		return PayloadTypeInfo{
+			Description: "Route Response",
+			TypeCode:    5,
 		}
 	default:
 		return PayloadTypeInfo{

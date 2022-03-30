@@ -26,6 +26,9 @@ type Node struct {
 	// Messages received from this node must have an anti-replay nonce greater than or equal to this number.
 	// Updated with the next expected counter after each recieved message.
 	MinimumInboundAntiReplayCounter uint64
+
+	// Adjacent nodes
+	AdjacentNodes []*Node
 }
 
 // A neighbor is a node that is adjacent and reachable via network interface directly
