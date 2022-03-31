@@ -11,10 +11,11 @@ import (
 	"log"
 	"net"
 
-	"github.com/jaksonkallio/mecono/meconod/encoding"
-	"github.com/jaksonkallio/mecono/meconod/protos"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
+
+	"github.com/jaksonkallio/mecono/meconod/pkg/model/healthcheck"
+	"github.com/jaksonkallio/mecono/meconod/pkg/utils/encoding"
 )
 
 const (
@@ -67,9 +68,9 @@ type Controller struct {
 	// Port that this controller listens for connections on.
 	NetworkPort uint16
 
-	// This makes unimplemented methods not create runtime errors from protos.
+	// This makes unimplemented methods not create runtime errors from healthcheck.
 	// Required by GRPC.
-	protos.UnimplementedMeconodServiceServer
+	healthcheck.UnimplementedMeconodServiceServer
 
 	GrpcServer *grpc.Server
 }
@@ -425,7 +426,7 @@ func (controller *Controller) InitApi() error {
 	controller.Logf("API service listening on %s", netAddr)
 
 	controller.GrpcServer = grpc.NewServer()
-	protos.RegisterMeconodServiceServer(controller.GrpcServer, controller)
+	healthcheck.RegisterMeconodServiceServer(controller.GrpcServer, controller)
 	reflection.Register(controller.GrpcServer)
 	controller.GrpcServer.Serve(lis)
 

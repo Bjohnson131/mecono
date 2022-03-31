@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/jaksonkallio/mecono/meconod/encoding"
-	"github.com/jaksonkallio/mecono/meconod/protos"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+
+	"github.com/jaksonkallio/mecono/meconod/pkg/utils/encoding"
+	"github.com/jaksonkallio/mecono/meconod/pkg/model/healthcheck"
 )
 
 // A node is a record of a remote node on the network
@@ -58,7 +59,7 @@ type Neighbor struct {
 	LastHealthy time.Time
 
 	// GRPC client connection to this neighbor
-	GrpcClient protos.MeconodServiceClient
+	GrpcClient healthcheck.MeconodServiceClient
 
 	// GRPC client connection
 	GrpcClientConn *grpc.ClientConn
@@ -88,7 +89,7 @@ func InitNeighbor(
 	neighbor.GrpcClientConn = conn
 
 	// Create the GRPC client
-	neighbor.GrpcClient = protos.NewMeconodServiceClient(conn)
+	neighbor.GrpcClient = healthcheck.NewMeconodServiceClient(conn)
 
 	return neighbor, nil
 }
@@ -116,7 +117,7 @@ func (neighbor *Neighbor) Stop() {
 }
 
 func (neighbor *Neighbor) HealthCheck() bool {
-	neighborHealthCheckResponse, err := neighbor.GrpcClient.NeighborHealthCheck(context.TODO(), &protos.NeighborHealthCheckRequest{})
+	neighborHealthCheckResponse, err := neighbor.GrpcClient.NeighborHealthCheck(context.TODO(), &healthcheck.NeighborHealthCheckRequest{})
 	healthy := (err == nil && neighborHealthCheckResponse.Status == "healthy")
 	if healthy {
 		neighbor.LastHealthy = time.Now()

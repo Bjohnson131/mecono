@@ -6,7 +6,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/jaksonkallio/mecono/meconod/server"
+	"github.com/jaksonkallio/mecono/meconod/pkg/model/server"
 )
 
 func main() {

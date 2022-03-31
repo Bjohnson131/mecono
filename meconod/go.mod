@@ -2,6 +2,11 @@ module github.com/jaksonkallio/mecono/meconod
 
 go 1.17
 
+// This allows you to use local changes instead of git changes.
+replace (
+	github.com/jaksonkallio/mecono => ./
+)
+
 require google.golang.org/grpc v1.45.0
 
 require (

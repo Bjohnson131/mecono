@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/jaksonkallio/mecono/meconod/network"
+	"github.com/jaksonkallio/mecono/meconod/pkg/model/network"
 )
 
 type Topology struct {
