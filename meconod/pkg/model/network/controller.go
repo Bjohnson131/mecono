@@ -14,7 +14,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
-	"github.com/jaksonkallio/mecono/meconod/pkg/model/healthcheck"
+	"github.com/jaksonkallio/mecono/meconod/pkg/model/proto"
 	"github.com/jaksonkallio/mecono/meconod/pkg/utils/encoding"
 )
 
@@ -70,7 +70,7 @@ type Controller struct {
 
 	// This makes unimplemented methods not create runtime errors from healthcheck.
 	// Required by GRPC.
-	healthcheck.UnimplementedMeconodServiceServer
+	proto.UnimplementedMeconodServiceServer
 
 	GrpcServer *grpc.Server
 }
@@ -426,7 +426,7 @@ func (controller *Controller) InitApi() error {
 	controller.Logf("API service listening on %s", netAddr)
 
 	controller.GrpcServer = grpc.NewServer()
-	healthcheck.RegisterMeconodServiceServer(controller.GrpcServer, controller)
+	proto.RegisterMeconodServiceServer(controller.GrpcServer, controller)
 	reflection.Register(controller.GrpcServer)
 	controller.GrpcServer.Serve(lis)
 

@@ -3,18 +3,18 @@ package network
 import (
 	"context"
 
-	"github.com/jaksonkallio/mecono/meconod/pkg/model/healthcheck"
+	"github.com/jaksonkallio/mecono/meconod/pkg/model/proto"
 )
 
-func (controller *Controller) NeighborHealthCheck(ctx context.Context, req *healthcheck.NeighborHealthCheckRequest) (*healthcheck.NeighborHealthCheckResponse, error) {
-	return &healthcheck.NeighborHealthCheckResponse{
+func (controller *Controller) NeighborHealthCheck(ctx context.Context, req *proto.NeighborHealthCheckRequest) (*proto.NeighborHealthCheckResponse, error) {
+	return &proto.NeighborHealthCheckResponse{
 		Status: "healthy",
 	}, nil
 }
 
-func (controller *Controller) Transmit(ctx context.Context, req *healthcheck.TransmitRequest) (*healthcheck.TransmitResponse, error) {
+func (controller *Controller) Transmit(ctx context.Context, req *proto.TransmitRequest) (*proto.TransmitResponse, error) {
 	// TODO: implement
-	return &healthcheck.TransmitResponse{
+	return &proto.TransmitResponse{
 		Ok: false,
 	}, nil
 }

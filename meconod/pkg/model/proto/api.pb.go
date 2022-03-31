@@ -4,7 +4,7 @@
 // 	protoc        v3.19.4
 // source: protos/api.proto
 
-package healthcheck
+package proto
 
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
